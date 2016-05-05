@@ -1,3 +1,7 @@
+//
+// author: thomas.mccauley@cern.ch
+//
+
 #include <memory>
 
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -16,10 +20,6 @@
 
 #include <iostream>
 #include <string>
-
-#include <TH1.h>
-#include <TFile.h>
-
 #include <fstream>
 
 class DimuonFilter : public edm::EDFilter 
@@ -35,42 +35,25 @@ private:
  
   edm::InputTag muonInputTag_;
 
-  double binInterval_;
-  std::string rootFileName_;
+  double minMuonPt_;
+  double maxMuonEta_;
   double invariantMassMin_;
   double invariantMassMax_;
- 
-  TFile* rootFile_;
-  TH1D*  invariantMasses_;
 
   std::ofstream csvOut_;
   std::string csvFileName_;
-
-  int maxNEvents_;
-  int nEvents_;
 };
 
 DimuonFilter::DimuonFilter(const edm::ParameterSet& iConfig)
   : muonInputTag_(iConfig.getParameter<edm::InputTag>("muonInputTag")),
-    binInterval_(iConfig.getParameter<double>("binInterval")),
-    rootFileName_(iConfig.getParameter<std::string>("rootFileName")),
+    minMuonPt_(iConfig.getParameter<double>("minMuonPt")),
+    maxMuonEta_(iConfig.getParameter<double>("maxMuonEta")),
     invariantMassMin_(iConfig.getParameter<double>("invariantMassMin")),
     invariantMassMax_(iConfig.getParameter<double>("invariantMassMax")),
-    csvFileName_(iConfig.getParameter<std::string>("csvFileName")),
-    maxNEvents_(iConfig.getParameter<int>("maxNEvents")),
-    nEvents_(0)
+    csvFileName_(iConfig.getParameter<std::string>("csvFileName"))
 {
-  //rootFile_ = new TFile(rootFileName_.c_str(), "RECREATE");
-
-  int nbins = int((invariantMassMax_ - invariantMassMin_)/binInterval_); 
-  
-  invariantMasses_ = new TH1D("dimuon invariant mass",
-                              "dimuon invariant mass",
-                              nbins, invariantMassMin_, invariantMassMax_);
-
   csvOut_.open(csvFileName_.c_str());
 }
-
 
 DimuonFilter::~DimuonFilter()
 {}
@@ -78,17 +61,19 @@ DimuonFilter::~DimuonFilter()
 bool
 DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
 {
-  edm::Handle<reco::MuonCollection> collection;
-  event.getByLabel(muonInputTag_, collection);
+  edm::Handle<reco::MuonCollection> muons;
+  event.getByLabel(muonInputTag_, muons);
 
-  if ( ! collection.isValid() )
+  if ( ! muons.isValid() )
   {
     std::cerr<<"DimuonFilter: invalid collection"<<std::endl;
     return false;
   }
   
   int charge;
-  double pt, eta, phi;
+  double pt = 0.0;
+  double eta = 0.0;
+  double phi;
   double energy, px, py, pz;
 
   double last_energy = 0.0;
@@ -101,7 +86,7 @@ DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
   double last_phi = 0.0;
 
   // Only examine if there are precisely 2 muons in the event (for simplicity)
-  if ( collection->size() != 2 )
+  if ( muons->size() != 2 )
     return false;
 
   int last_charge = 0;
@@ -109,34 +94,34 @@ DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
 
   bool last_was_tracker = false;
   bool last_was_global = false;
-
   bool this_is_tracker = false;
-  bool this_is_global = false;
  
-  for ( reco::MuonCollection::const_iterator it = collection->begin(), end = collection->end(); 
+  for ( reco::MuonCollection::const_iterator it = muons->begin(), end = muons->end(); 
         it != end; ++it) 
   {
     // We are only looking for tracker or global muons, not stand-alone
-    if ( ! ((*it).track().isNonnull() || (*it).combinedMuon().isNonnull()) )
+    if ( ! ((*it).isTrackerMuon() || (*it).isGlobalMuon()) )
       return false;
 
-    //if ( nEvents_ >= maxNEvents_ )
-    //  return false;
-    
-    if  ( (*it).combinedMuon().isNonnull() ) // Global muon                                                             
+    if  ( (*it).isGlobalMuon() ) // Global muon                                                             
     {
-      pt = (*it).combinedMuon()->pt();
-      phi = (*it).combinedMuon()->phi();
-      eta = (*it).combinedMuon()->eta();
+      pt = (*it).globalTrack()->pt();
+      phi = (*it).globalTrack()->phi();
+      eta = (*it).globalTrack()->eta();
     }
     
-    if ( (*it).track().isNonnull() ) // Tracker muon                                                                      
+    if ( (*it).isTrackerMuon() ) // Tracker muon                                                                      
     {
       pt = (*it).track()->pt();
       phi = (*it).track()->phi();
       eta = (*it).track()->eta();
     }
   
+    if ( pt < minMuonPt_ )
+      return false;
+    if ( fabs(eta) > maxMuonEta_ )
+      return false;
+
     charge = (*it).charge();
     
     if ( last_charge == 0 ) // i.e. this is the first of the pair of muons
@@ -151,13 +136,13 @@ DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
       last_eta = eta;
       last_phi = phi;
 
-      if ( (*it).track().isNonnull() )
+      if ( (*it).isTrackerMuon() )
       {
         last_was_global = false;
         last_was_tracker = true;
       }
       
-      if ( (*it).combinedMuon().isNonnull() )
+      if ( (*it).isGlobalMuon() )
       {
         last_was_tracker = false;
         last_was_global = true;
@@ -168,7 +153,10 @@ DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
     else // we are on the second muon of the pair and can compare charge and calculate invariant mass
     {
       combined_charge = last_charge*charge;
-      
+  
+      if ( combined_charge < 0 )
+        return false;
+    
       energy = (*it).energy();
       px = (*it).px();
       py = (*it).py();
@@ -188,16 +176,14 @@ DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
 
       std::string this_type;
 
-      if ( (*it).track().isNonnull() )
+      if ( (*it).isTrackerMuon() )
       {
         this_is_tracker = true;
-        this_is_global = false;
         this_type = "T";
       }
       
-      if ( (*it).combinedMuon().isNonnull() )
+      if ( (*it).isGlobalMuon() )
       {
-        this_is_global = true;
         this_is_tracker = false; // a global actually contains both, so make it false
         this_type = "G";
       }
@@ -213,8 +199,6 @@ DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
       if ( last_was_tracker && this_is_tracker )
         return false; // TT
       
-      //invariantMasses_->Fill(m);
-
       csvOut_<< event.id().run() <<","<< event.id().event() <<","
 	     << last_type <<","
              << last_energy <<","<< last_px <<","<< last_py <<","<< last_pz <<","
@@ -226,8 +210,6 @@ DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
     }
   }
 
-  nEvents_ += 1;
-  
   return true;
 }
 
@@ -240,10 +222,6 @@ DimuonFilter::beginJob()
 void 
 DimuonFilter::endJob() 
 {
-  //rootFile_->cd();
-  //invariantMasses_->Write();
-  //rootFile_->Close();
-
   csvOut_.close();
 }
 

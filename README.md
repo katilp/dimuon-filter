@@ -10,13 +10,13 @@ and input the commands as explained below.
 * Create a CMSSW environment: 
 
 ```
-    cmsrel CMSSW_4_2_8
+    cmsrel CMSSW_5_3_32
 ```
 
-* Change to the CMSSW_4_2_8/src/ directory:
+* Change to the CMSSW_5_3_32/src/ directory:
 
 ```
-    cd CMSSW_4_2_8/src/
+    cd CMSSW_5_3_32/src/
 ```
 * Initialize the CMSSW environment:
 
@@ -41,7 +41,7 @@ and input the commands as explained below.
 * Run the example configuration file (see comments in the file on changing parameters):
 
 ```
-    cmsRun MuRun2010B.py
+    cmsRun MuRun2011A.py
 ```
-which will produce a csv file: MuRun2010B.csv
+which will produce a csv file: MuRun2011A.csv
 Enjoy!
