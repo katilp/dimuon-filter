@@ -154,7 +154,7 @@ DimuonFilter::filter(edm::Event& event, const edm::EventSetup& eventSetup)
     {
       combined_charge = last_charge*charge;
   
-      if ( combined_charge < 0 )
+      if ( combined_charge > 0 )
         return false;
     
       energy = (*it).energy();
