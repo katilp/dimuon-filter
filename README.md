@@ -28,20 +28,24 @@ and input the commands as explained below.
 ```
     git clone https://github.com/tpmccauley/dimuon-filter DimuonFilter/DimuonFilter
 ````
+
+* Checkout the 2011A branch:
+
+```
+cd DimuonFilter/DimuonFilter
+git checkout 2011A
+```
+
 * Compile the code with the command:
 
 ```
     scram b
 ```
-* Go to the source directory:
 
-```
-    cd DimounFilter/DimuonFilter
-```
 * Run the example configuration file (see comments in the file on changing parameters):
 
 ```
-    cmsRun MuRun2011A.py
+    cmsRun DoubleMuRun2011A.py
 ```
-which will produce a csv file: MuRun2011A.csv
+which will produce a csv file.
 Enjoy!
