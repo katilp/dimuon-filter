@@ -27,13 +27,13 @@ and input the commands as explained below.
 
 ```
     git clone https://github.com/tpmccauley/dimuon-filter DimuonFilter/DimuonFilter
-````
+```
 
 * Checkout the 2011A branch:
 
 ```
-cd DimuonFilter/DimuonFilter
-git checkout 2011A
+    cd DimuonFilter/DimuonFilter
+    git checkout 2011A
 ```
 
 * Compile the code with the command:
