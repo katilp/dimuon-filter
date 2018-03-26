@@ -26,7 +26,7 @@ and input the commands as explained below.
 * Clone the source code:
 
 ```
-    git clone https://github.com/tpmccauley/dimuon-filter DimuonFilter/DimuonFilter
+    git clone git://github.com/tpmccauley/dimuon-filter DimuonFilter/DimuonFilter
 ```
 
 * Checkout the 2011A branch:
